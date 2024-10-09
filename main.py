@@ -1,7 +1,7 @@
 from qcsim import *
 
 
-def main():
+def A1():
     print(e0)
     print(I * H * H * I * e0)
     print(e0.is_normalized())

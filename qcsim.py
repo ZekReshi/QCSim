@@ -1,4 +1,5 @@
-from typing import Tuple
+import sys
+from typing import Tuple, List
 
 import numpy as np
 
@@ -50,16 +51,29 @@ class Gate:
             return np.allclose(self.tab, other.tab)
         return False
 
-e0 = Qubit(np.asarray([1., 0.]))
-e1 = Qubit(np.asarray([0., 1.]))
-plus = Qubit(np.asarray([.5 ** .5, .5 ** .5]))
-minus = Qubit(np.asarray([.5 ** .5, -.5 ** .5]))
+    def is_own_inverse(self):
+        return self * self == I
 
-I = Gate(np.asarray([[1., 0.], [0., 1.]]))
-X = Gate(np.asarray([[0., 1.], [1., 0.]]))
-Z = Gate(np.asarray([[1., 0.], [0., -1.]]))
-Y = Gate(np.asarray([[0., -1.j], [1.j, 0.]]))
-H = Gate(np.asarray([[.5 ** .5, .5 ** .5], [.5 ** .5, -.5 ** .5]]))
+    def valid_quantum_operation(self):
+        return np.linalg.cond(self.tab) < 1/sys.float_info.epsilon
+
+    @staticmethod
+    def compose(gates: List['Gate']):
+        res = I
+        for gate in gates:
+            res *= gate
+        return res
+
+e0 = Qubit(np.asarray([1.+0j, 0.+0j]))
+e1 = Qubit(np.asarray([0.+0j, 1.+0j]))
+plus = Qubit(np.asarray([.5+0j ** .5, .5 ** .5]))
+minus = Qubit(np.asarray([.5+0j ** .5, -.5 ** .5]))
+
+I = Gate(np.asarray([[1.+0j, 0.+0j], [0., 1.+0j]]))
+X = Gate(np.asarray([[0.+0j, 1.+0j], [1.+0j, 0.+0j]]))
+Z = Gate(np.asarray([[1.+0j, 0.+0j], [0.+0j, -1.+0j]]))
+Y = Gate(np.asarray([[0.+0j, -1.j], [1.j, 0.+0j]]))
+H = Gate(np.asarray([[(.5+0j) ** (.5+0j), (.5+0j) ** (.5+0j)], [(.5+0j) ** (.5+0j), -(.5+0j) ** (.5+0j)]]))
 
 if __name__ == '__main__':
     print(f"""e0 = 
@@ -76,5 +90,7 @@ X =
 {X}
 Z = 
 {Z}
+Y = 
+{Y}
 H = 
 {H}""")
