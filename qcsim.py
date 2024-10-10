@@ -21,7 +21,7 @@ class Qubit:
         return False
 
     def is_normalized(self):
-        return (self.val >= 0).all() and (self.val <= 1).all() and (self.val * self.val).sum() == 1
+        return (abs(self.val) ** 2 >= 0).all() and (abs(self.val) ** 2 <= 1).all() and np.isclose((abs(self.val) ** 2).sum(), 1)
 
     def probability_of(self, state: int):
         assert state == 0 or state == 1
@@ -66,8 +66,8 @@ class Gate:
 
 e0 = Qubit(np.asarray([1.+0j, 0.+0j]))
 e1 = Qubit(np.asarray([0.+0j, 1.+0j]))
-plus = Qubit(np.asarray([.5+0j ** .5, .5 ** .5]))
-minus = Qubit(np.asarray([.5+0j ** .5, -.5 ** .5]))
+plus = Qubit(np.asarray([(.5+0j) ** (.5+0j), (.5+0j) ** (.5+0j)]))
+minus = Qubit(np.asarray([(.5+0j) ** (.5+0j), -(.5+0j) ** (.5+0j)]))
 
 I = Gate(np.asarray([[1.+0j, 0.+0j], [0., 1.+0j]]))
 X = Gate(np.asarray([[0.+0j, 1.+0j], [1.+0j, 0.+0j]]))
