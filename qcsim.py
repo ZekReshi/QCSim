@@ -1,12 +1,22 @@
 import sys
-from typing import Tuple, List
+from numbers import Number
+from typing import Tuple, List, Union
 
 import numpy as np
 
 class Qubit:
     val: np.ndarray
 
-    def __init__(self, val: np.ndarray):
+    def __init__(self, val: Union[np.ndarray, Tuple[Number, Number], Number], b: Number = None):
+        if isinstance(val, Number):
+            assert isinstance(b, Number)
+            val = np.asarray((val, b))
+        else:
+            assert b is None
+            if isinstance(val, tuple):
+                assert len(val) == 2
+                val = np.asarray(val)
+
         assert type(val) == np.ndarray
         assert val.shape == (2,)
 
@@ -31,7 +41,18 @@ class Qubit:
 class Gate:
     tab: np.ndarray
 
-    def __init__(self, tab: np.ndarray):
+    def __init__(self, tab: Union[np.ndarray, Tuple[Tuple[Number, Number], Tuple[Number, Number]], Number], b: Number = None, c: Number = None, d: Number = None):
+        if isinstance(tab, Number):
+            assert isinstance(b, Number) and isinstance(c, Number) and isinstance(d, Number)
+            tab = np.asarray([[tab, b], [c, d]])
+        else:
+            assert b is None and c is None and d is None
+            if isinstance(tab, tuple):
+                assert len(tab) == 2
+                assert len(tab[0]) == 2
+                assert len(tab[1]) == 2
+                tab = np.asarray(tab)
+
         assert type(tab) == np.ndarray
         assert tab.shape == (2, 2)
         self.tab = tab
@@ -64,16 +85,16 @@ class Gate:
             res *= gate
         return res
 
-e0 = Qubit(np.asarray([1.+0j, 0.+0j]))
-e1 = Qubit(np.asarray([0.+0j, 1.+0j]))
-plus = Qubit(np.asarray([(.5+0j) ** (.5+0j), (.5+0j) ** (.5+0j)]))
-minus = Qubit(np.asarray([(.5+0j) ** (.5+0j), -(.5+0j) ** (.5+0j)]))
+e0 = Qubit(1.+0j, 0.+0j)
+e1 = Qubit(0.+0j, 1.+0j)
+plus = Qubit((.5+0j) ** (.5+0j), (.5+0j) ** (.5+0j))
+minus = Qubit((.5+0j) ** (.5+0j), -(.5+0j) ** (.5+0j))
 
-I = Gate(np.asarray([[1.+0j, 0.+0j], [0., 1.+0j]]))
-X = Gate(np.asarray([[0.+0j, 1.+0j], [1.+0j, 0.+0j]]))
-Z = Gate(np.asarray([[1.+0j, 0.+0j], [0.+0j, -1.+0j]]))
-Y = Gate(np.asarray([[0.+0j, -1.j], [1.j, 0.+0j]]))
-H = Gate(np.asarray([[(.5+0j) ** (.5+0j), (.5+0j) ** (.5+0j)], [(.5+0j) ** (.5+0j), -(.5+0j) ** (.5+0j)]]))
+I = Gate(1.+0j, 0.+0j, 0.+0j, 1.+0j)
+X = Gate(0.+0j, 1.+0j, 1.+0j, 0.+0j)
+Z = Gate(1.+0j, 0.+0j, 0.+0j, -1.+0j)
+Y = Gate(0.+0j, -1.j, 1.j, 0.+0j)
+H = Gate((.5+0j) ** (.5+0j), (.5+0j) ** (.5+0j), (.5+0j) ** (.5+0j), -(.5+0j) ** (.5+0j))
 
 if __name__ == '__main__':
     print(f"""e0 = 
