@@ -1,8 +1,9 @@
-import sys
+import random
 from numbers import Number
 from typing import Tuple, List, Union
 
 import numpy as np
+
 
 class Qubit:
     val: np.ndarray
@@ -37,6 +38,9 @@ class Qubit:
         assert state == 0 or state == 1
 
         return abs(self.val[state]) ** 2
+
+    def readout(self):
+        return random.choices(range(2), weights=[self.probability_of(0), self.probability_of(1)])[0]
 
 class Gate:
     tab: np.ndarray
@@ -76,7 +80,11 @@ class Gate:
         return self * self == I
 
     def valid_quantum_operation(self):
-        return np.linalg.cond(self.tab) < 1/sys.float_info.epsilon
+        print(np.matmul(self.tab, self.conjugate_transpose().tab))
+        return np.allclose(np.matmul(self.tab, self.conjugate_transpose().tab), np.identity(2))
+
+    def conjugate_transpose(self):
+        return Gate(self.tab.conj().T)
 
     @staticmethod
     def compose(gates: List['Gate']):
@@ -85,16 +93,36 @@ class Gate:
             res *= gate
         return res
 
+    @staticmethod
+    def commuting(a: 'Gate', b: 'Gate'):
+        return np.allclose(np.matmul(a.tab, b.tab), np.matmul(b.tab, a.tab))
+
+    @staticmethod
+    def pauli_x(theta: float):
+        return Gate(np.cos(theta/2), -1j*np.sin(theta/2), -1j*np.sin(theta/2), np.cos(theta/2))
+
+    @staticmethod
+    def pauli_y(theta: float):
+        return Gate(np.cos(theta/2), -np.sin(theta/2), np.sin(theta/2), np.cos(theta/2))
+
+    @staticmethod
+    def pauli_z(theta: float):
+        return Gate(np.exp(-1j*theta/2), 0+0j, 0+0j, np.exp(1j*theta/2))
+
 e0 = Qubit(1.+0j, 0.+0j)
 e1 = Qubit(0.+0j, 1.+0j)
 plus = Qubit((.5+0j) ** (.5+0j), (.5+0j) ** (.5+0j))
 minus = Qubit((.5+0j) ** (.5+0j), -(.5+0j) ** (.5+0j))
+iplus = Qubit((.5+0j) ** (.5+0j), 1j * (.5+0j) ** (.5+0j))
+iminus = Qubit((.5+0j) ** (.5+0j), 1j * -(.5+0j) ** (.5+0j))
 
 I = Gate(1.+0j, 0.+0j, 0.+0j, 1.+0j)
 X = Gate(0.+0j, 1.+0j, 1.+0j, 0.+0j)
 Z = Gate(1.+0j, 0.+0j, 0.+0j, -1.+0j)
 Y = Gate(0.+0j, -1.j, 1.j, 0.+0j)
 H = Gate((.5+0j) ** (.5+0j), (.5+0j) ** (.5+0j), (.5+0j) ** (.5+0j), -(.5+0j) ** (.5+0j))
+S = Gate(1+0j, 0, 0, 1j)
+T = Gate(1, 0, 0, np.exp(1j*np.pi/4))
 
 if __name__ == '__main__':
     print(f"""e0 = 
@@ -105,6 +133,10 @@ plus =
 {plus}
 minus =
 {minus}
+iplus =
+{iplus}
+iminus =
+{iminus}
 I = 
 {I}
 X = 
@@ -114,4 +146,8 @@ Z =
 Y = 
 {Y}
 H = 
-{H}""")
+{H}
+S = 
+{S}
+T = 
+{T}""")

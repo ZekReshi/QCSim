@@ -1,7 +1,8 @@
 from qcsim import *
 
-# Exercise 1
-print("# Exercise 1")
+# Instructions 1
+print("# Instructions 1")
+
 # 1.1
 print("# 1.1")
 print(e0)
@@ -28,8 +29,9 @@ print("# 1.5")
 print(e0.probability_of(1))
 print(plus.probability_of(1))
 
-# Exercise 2
-print("# Exercise 2")
+# Instructions 2
+print("# Instructions 2")
+
 # 2.1
 print("# 2.1")
 print(I)
@@ -97,7 +99,9 @@ print("# 2.9")
 print(Gate.compose([H, X, H]) == Z)
 print(Gate.compose([H, Z, H]) == X)
 
-# Exercise 3
+# Instructions 3
+print("# Instructions 3")
+
 # 3.1
 print("# 3.1")
 print((H * e0).probability_of(0))
@@ -115,6 +119,6 @@ print("# 3.4")
 # No
 # TODO
 
-# Exercise 4
-print("# Exercise 4")
+# Instructions 4
+print("# Instructions 4")
 # TODO
