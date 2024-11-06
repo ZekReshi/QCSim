@@ -1,3 +1,4 @@
+import itertools
 import random
 from numbers import Number
 from typing import Tuple, List, Union
@@ -11,15 +12,14 @@ class Qubit:
     def __init__(self, val: Union[np.ndarray, Tuple[Number, Number], Number], b: Number = None):
         if isinstance(val, Number):
             assert isinstance(b, Number)
-            val = np.asarray((val, b))
+            val = np.asarray((val, b)).reshape((2, 1))
         else:
             assert b is None
             if isinstance(val, tuple):
                 assert len(val) == 2
-                val = np.asarray(val)
+                val = np.asarray(val).reshape((2, 1))
 
         assert type(val) == np.ndarray
-        assert val.shape == (2,)
 
         self.val = val
 
@@ -31,6 +31,21 @@ class Qubit:
             return np.allclose(self.val, other.val)
         return False
 
+    def __mul__(self, other):
+        if isinstance(other, Qubit):
+            return np.matmul(self.dual().val, other.val).squeeze()
+        if isinstance(other, Gate):
+            return np.matmul(self.dual().val, other.tab)
+        raise ValueError()
+
+    def __matmul__(self, other):
+        if isinstance(other, Qubit):
+            return Qubit(np.kron(self.val, other.val))
+        raise ValueError
+
+    def dual(self):
+        return Qubit(self.val.T)
+
     def is_normalized(self):
         return (abs(self.val) ** 2 >= 0).all() and (abs(self.val) ** 2 <= 1).all() and np.isclose((abs(self.val) ** 2).sum(), 1)
 
@@ -41,6 +56,13 @@ class Qubit:
 
     def readout(self):
         return random.choices(range(2), weights=[self.probability_of(0), self.probability_of(1)])[0]
+
+    @staticmethod
+    def orthonormal(qubits: List['Qubit']):
+        for q1, q2 in itertools.product(qubits, qubits):
+            if not np.isclose(q1 * q2, 1 if id(q1) == id(q2) else 0):
+                return False
+        return True
 
 class Gate:
     tab: np.ndarray
@@ -58,7 +80,6 @@ class Gate:
                 tab = np.asarray(tab)
 
         assert type(tab) == np.ndarray
-        assert tab.shape == (2, 2)
         self.tab = tab
 
     def __mul__(self, other):
@@ -67,6 +88,11 @@ class Gate:
         if isinstance(other, Qubit):
             return Qubit(np.matmul(self.tab, other.val))
         raise ValueError()
+
+    def __matmul__(self, other):
+        if isinstance(other, Gate):
+            return Gate(np.kron(self.tab, other.tab))
+        raise ValueError
 
     def __str__(self):
         return str(self.tab)
@@ -80,7 +106,6 @@ class Gate:
         return self * self == I
 
     def valid_quantum_operation(self):
-        print(np.matmul(self.tab, self.conjugate_transpose().tab))
         return np.allclose(np.matmul(self.tab, self.conjugate_transpose().tab), np.identity(2))
 
     def conjugate_transpose(self):
@@ -123,6 +148,20 @@ Y = Gate(0.+0j, -1.j, 1.j, 0.+0j)
 H = Gate((.5+0j) ** (.5+0j), (.5+0j) ** (.5+0j), (.5+0j) ** (.5+0j), -(.5+0j) ** (.5+0j))
 S = Gate(1+0j, 0, 0, 1j)
 T = Gate(1, 0, 0, np.exp(1j*np.pi/4))
+
+CNOT = Gate(np.asarray([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]]))
+
+e00 = e0 @ e0
+e01 = e0 @ e1
+e10 = e1 @ e0
+e11 = e1 @ e1
+
+bell = CNOT * (H @ I)
+bell00 = bell * e00
+bell01 = bell * e01
+bell10 = bell * e10
+bell11 = bell * e11
+bellbm = (H @ I) * CNOT
 
 if __name__ == '__main__':
     print(f"""e0 = 
