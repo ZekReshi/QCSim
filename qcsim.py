@@ -35,7 +35,7 @@ class Qubit:
         if isinstance(other, Qubit):
             return np.matmul(self.dual().val, other.val).squeeze()
         if isinstance(other, Gate):
-            return np.matmul(self.dual().val, other.tab)
+            return Qubit(np.matmul(self.dual().val, other.tab))
         raise ValueError()
 
     def __matmul__(self, other):
@@ -44,18 +44,48 @@ class Qubit:
         raise ValueError
 
     def dual(self):
-        return Qubit(self.val.T)
+        return Qubit(self.val.conj().T)
 
     def is_normalized(self):
-        return (abs(self.val) ** 2 >= 0).all() and (abs(self.val) ** 2 <= 1).all() and np.isclose((abs(self.val) ** 2).sum(), 1)
+        return (self.probabilities() >= 0).all() and (self.probabilities() <= 1).all() and np.isclose(self.probabilities().sum(), 1)
 
-    def probability_of(self, state: int):
-        assert state == 0 or state == 1
+    def probabilities(self):
+        return abs(self.val) ** 2
 
-        return abs(self.val[state]) ** 2
+    def probabilities_of(self, qubits=None):
+        if qubits is None:
+            qubits = []
+        probs = self.probabilities()
+        n_qubits = int(np.log2(len(self.val)))
+        probs_idxs = [Qubit(np.array([[1]]))]
+        for i in range(n_qubits):
+            if i in qubits:
+                zero_probs_idx = [prob_idxs @ e0 for prob_idxs in probs_idxs]
+                one_probs_idx = [prob_idxs @ e1 for prob_idxs in probs_idxs]
+                probs_idxs = zero_probs_idx + one_probs_idx
+            else:
+                probs_idxs = [prob_idxs @ Qubit(np.array([[1], [1]])) for prob_idxs in probs_idxs]
+        return [abs(probs * prob_idxs.val).sum() for prob_idxs in probs_idxs]
 
-    def readout(self):
-        return random.choices(range(2), weights=[self.probability_of(0), self.probability_of(1)])[0]
+    def readout(self, qubits: list[int]):
+        probs = self.probabilities_of(qubits)
+        value_encoded = random.choices(range(len(probs)), weights=probs)[0]
+        values = [value_encoded // 2 ** qubit % 2 for qubit in range(len(qubits))]
+        return values, self.new_state_after_readout(qubits, values)
+
+    def new_state_after_readout(self, qubits: list[int], values: list[int]):
+        n_qubits = int(np.log2(len(self.val)))
+        remaining_qubits = [n_qubits - qubit - 1 for qubit in qubits]
+        remaining_state = []
+        for idx, val in enumerate(self.val[:, 0]):
+            match = True
+            for qubit, value in zip(remaining_qubits, values):
+                if idx // 2 ** qubit % 2 != value:
+                    match = False
+            if match:
+                remaining_state.append(val)
+        new_state = np.array(remaining_state).reshape((len(remaining_state), 1))
+        return Qubit(new_state / np.sqrt((abs(new_state) ** 2).sum()))
 
     @staticmethod
     def orthonormal(qubits: List['Qubit']):
@@ -134,6 +164,102 @@ class Gate:
     def pauli_z(theta: float):
         return Gate(np.exp(-1j*theta/2), 0+0j, 0+0j, np.exp(1j*theta/2))
 
+    @staticmethod
+    def cnot(n_qubits: int, control: int, target: int):
+        left = Gate(np.array([[1]]))
+        right = Gate(np.array([[1]]))
+        for qubit in range(n_qubits):
+            if qubit == control:
+                left = left @ Gate(e0.dual() * e0.dual())
+                right = right @ Gate(e1.dual() * e1.dual())
+            if qubit == target:
+                left = left @ I
+                right = right @ X
+            if qubit not in [control, target]:
+                left = left @ I
+                right = right @ I
+        return Gate(left.tab + right.tab)
+
+    @staticmethod
+    def qand(n_qubits: int, a: int, b: int, out: int):
+        cur = Gate(np.array([[1]]))
+        for i in range(n_qubits):
+            if i == out:
+                cur = cur @ H
+            else:
+                cur = cur @ I
+        qand = cur
+        qand = Gate.cnot(n_qubits, b, out) * qand
+        cur = Gate(np.array([[1]]))
+        for i in range(n_qubits):
+            if i == out:
+                cur = cur @ T.conjugate_transpose()
+            else:
+                cur = cur @ I
+        qand = cur * qand
+        qand = Gate.cnot(n_qubits, a, out) * qand
+        cur = Gate(np.array([[1]]))
+        for i in range(n_qubits):
+            if i == out:
+                cur = cur @ T
+            else:
+                cur = cur @ I
+        qand = cur * qand
+        qand = Gate.cnot(n_qubits, b, out) * qand
+        cur = Gate(np.array([[1]]))
+        for i in range(n_qubits):
+            if i == out:
+                cur = cur @ T.conjugate_transpose()
+            else:
+                cur = cur @ I
+        qand = cur * qand
+        qand = Gate.cnot(n_qubits, a, out) * qand
+        cur = Gate(np.array([[1]]))
+        for i in range(n_qubits):
+            if i == b or i == out:
+                cur = cur @ T
+            else:
+                cur = cur @ I
+        qand = cur * qand
+        qand = Gate.cnot(n_qubits, a, b) * qand
+        cur = Gate(np.array([[1]]))
+        for i in range(n_qubits):
+            if i == out:
+                cur = cur @ H
+            else:
+                cur = cur @ I
+        qand = cur * qand
+        cur = Gate(np.array([[1]]))
+        for i in range(n_qubits):
+            if i == a:
+                cur = cur @ T
+            elif i == b:
+                cur = cur @ T.conjugate_transpose()
+            else:
+                cur = cur @ I
+        qand = cur * qand
+        qand = Gate.cnot(n_qubits, a, b) * qand
+        return qand
+
+    @staticmethod
+    def qor(n_qubits: int, a: int, b: int, out: int):
+        cur = Gate(np.array([[1]]))
+        for i in range(n_qubits):
+            if i == a or i == b or i == out:
+                cur = cur @ X
+            else:
+                cur = cur @ I
+        qor = cur
+        qor = Gate.qand(n_qubits, a, b, out) * qor
+        cur = Gate(np.array([[1]]))
+        for i in range(n_qubits):
+            if i == a or i == b:
+                cur = cur @ X
+            else:
+                cur = cur @ I
+        qor = cur * qor
+        return qor
+
 e0 = Qubit(1.+0j, 0.+0j)
 e1 = Qubit(0.+0j, 1.+0j)
 plus = Qubit((.5+0j) ** (.5+0j), (.5+0j) ** (.5+0j))
@@ -162,6 +288,19 @@ bell01 = bell * e01
 bell10 = bell * e10
 bell11 = bell * e11
 bellbm = (H @ I) * CNOT
+
+toffoli = ((CNOT @ I) *
+           (T @ T.conjugate_transpose() @ I) *
+           (CNOT @ H) *
+           (I @ T @ T) *
+           (Gate.cnot(3, 0, 2)) *
+           (I @ I @ T.conjugate_transpose()) *
+           (I @ CNOT) *
+           (I @ I @ T) *
+           (Gate.cnot(3, 0, 2)) *
+           (I @ I @ T.conjugate_transpose()) *
+           (I @ CNOT) *
+           (I @ I @ H))
 
 if __name__ == '__main__':
     print(f"""e0 = 
